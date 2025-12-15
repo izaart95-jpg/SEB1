@@ -1,4 +1,4 @@
-name: Parsec AutoHotkey Automation
+name: PAA
 
 on:
   workflow_dispatch:
