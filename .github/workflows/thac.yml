@@ -230,10 +230,11 @@ jobs:
 
             Start-Sleep -Seconds 30
           }
-       - name: Create server.py
+                
+      - name: Create server.py
         shell: powershell
-  run: |
-    $pythonContent = @'
+        run: |
+          $pythonContent = @'
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import os
 
@@ -299,10 +300,9 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nServer stopped")
 '@
-
-    $pythonPath = "C:\Users\runneradmin\Downloads\chat-work\server.py"
-    $pythonContent | Out-File -FilePath $pythonPath -Encoding UTF8
-    Write-Host "server.py created at $pythonPath"
+          $pythonPath = "C:\Users\runneradmin\Downloads\chat-work\server.py"
+          $pythonContent | Out-File -FilePath $pythonPath -Encoding UTF8
+          Write-Host "server.py created at $pythonPath"
 
       - name: Stop Node & ngrok and upload
         if: success()
@@ -319,5 +319,5 @@ if __name__ == "__main__":
           pythonw server.py
           
               
-          curl.exe --fail -X POST `
+          curl.exe --fail -X POST 
             https://illuminative-myriadly-ferdinand.ngrok-free.dev/trigger
