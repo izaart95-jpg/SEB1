@@ -31,49 +31,60 @@ jobs:
         run: |
           $projectUrl = "https://archive.org/download/project_202512/Project.zip"
           $zipPath = "C:\Project.zip"
+          
           Write-Host "Downloading Project.zip..."
           Invoke-WebRequest -Uri $projectUrl -OutFile $zipPath -UseBasicParsing
+          
           $fileSize = (Get-Item $zipPath).Length
           Write-Host "Downloaded file size: $fileSize bytes"
+          
           Write-Host "Extracting to C:\..."
           Expand-Archive -Path $zipPath -DestinationPath "C:\" -Force
+          
           Write-Host "Contents of C:\Project:"
           Get-ChildItem "C:\Project" -Recurse | Format-Table Name, Length
+          
           Write-Host "Project extracted successfully"
       - name: Download and install AutoHotkey v2
         shell: powershell
         run: |
           $ahkUrl = "https://github.com/AutoHotkey/AutoHotkey/releases/download/v2.0.19/AutoHotkey_2.0.19_setup.exe"
           $ahkPath = "$env:WORK_DIR\AutoHotkey_Setup.exe"
+          
           Write-Host "Downloading AutoHotkey from official source..."
           Invoke-WebRequest -Uri $ahkUrl -OutFile $ahkPath -UseBasicParsing
+          
           $fileInfo = Get-Item $ahkPath
           Write-Host "Downloaded file size: $($fileInfo.Length) bytes"
+          
           Write-Host "Installing AutoHotkey..."
           Start-Process -FilePath $ahkPath -ArgumentList "/silent" -Wait
+          
           Write-Host "AutoHotkey installed successfully"
       - name: Create AutoHotkey script
         shell: powershell
         run: |
           $scriptContent = @'
-Sleep 3000
-Send "ffbewafa709@gmail.com"
-Sleep 1000
-Send "{Tab}"
-Sleep 1000
-Send "Hamza@123456"
-Sleep 1000
-Send "{Enter}"
-Sleep 45000
-Send "{Tab}"
-Sleep 1000
-Send "{Enter}"
-Send "{Tab}"
-Send "{Enter}"
-'@
+          Sleep 3000
+          Send "ffbewafa709@gmail.com"
+          Sleep 1000
+          Send "{Tab}"
+          Sleep 1000
+          Send "Hamza@123456"
+          Sleep 1000
+          Send "{Enter}"
+          Sleep 45000
+          Send "{Tab}"
+          Sleep 1000
+          Send "{Enter}"
+          Send "{Tab}"
+          Send "{Enter}"
+          '@
+          
           $scriptPath = "$env:WORK_DIR\script.ahk"
           $scriptContent | Out-File -FilePath $scriptPath -Encoding UTF8
           echo "AHK_SCRIPT_PATH=$scriptPath" >> $env:GITHUB_ENV
+          
           Write-Host "Created AHK script at: $scriptPath"
           Write-Host "Script content:"
           Get-Content $scriptPath
@@ -93,13 +104,18 @@ Send "{Enter}"
           $ahkV2 = "C:\Program Files\AutoHotkey\v2\AutoHotkey.exe"
           $ahk64 = "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe"
           $ahk32 = "C:\Program Files\AutoHotkey\v2\AutoHotkey32.exe"
+          
+          # Start Parsec
           Start-Process "parsec:" -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 5
+          
+          # Find AutoHotkey
           $ahkExe = $null
           if (Test-Path $ahkUX) { $ahkExe = $ahkUX }
           elseif (Test-Path $ahkV2) { $ahkExe = $ahkV2 }
           elseif (Test-Path $ahk64) { $ahkExe = $ahk64 }
           elseif (Test-Path $ahk32) { $ahkExe = $ahk32 }
+          
           if ($ahkExe) {
               Write-Host "Using AutoHotkey: $ahkExe"
               Start-Process -FilePath $ahkExe -ArgumentList "`"$env:AHK_SCRIPT_PATH`""
@@ -110,12 +126,18 @@ Send "{Enter}"
               Write-Host "AutoHotkey NOT FOUND!"
               Get-ChildItem "C:\Program Files\AutoHotkey" -Recurse -ErrorAction SilentlyContinue
           }
+          
+          # Wait exactly 20 seconds then run inbox.py
           Write-Host "Waiting 20 seconds before running inbox.py..."
           Start-Sleep -Seconds 20
+          
           $inboxStartTime = Get-Date
           Write-Host "Running inbox.py at: $inboxStartTime (exactly 20s after AHK)"
+          
+          # Run inbox.py hidden using pythonw
           pyw -3.11 C:\Project\inbox.py
           Write-Host "inbox.py started in background"
+          
       - name: Prepare Downloads directory
         shell: powershell
         run: |
@@ -183,79 +205,80 @@ Send "{Enter}"
             }
             Start-Sleep -Seconds 30
           }
+                
       - name: Create server.py
         shell: powershell
         run: |
           $pythonContent = @'
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import os
-
-FILENAME = "chat.tar"
-PORT = 8080
-
-class FileHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == "/chat.tar":
-            self.download_file()
-        elif self.path == "/":
-            self.serve_index()
-        else:
-            self.send_error(404)
-
-    def download_file(self):
-        if os.path.exists(FILENAME):
-            self.send_response(200)
-            self.send_header("Content-Type", "application/x-tar")
-            self.send_header("Content-Disposition", f'attachment; filename="{FILENAME}"')
-            self.send_header("Content-Length", os.path.getsize(FILENAME))
-            self.end_headers()
-            with open(FILENAME, "rb") as f:
-                self.wfile.write(f.read())
-        else:
-            self.send_error(404, "chat.tar not found")
-
-    def serve_index(self):
-        exists = os.path.exists(FILENAME)
-        size = os.path.getsize(FILENAME) if exists else 0
-        size_mb = f"{size / 1024 / 1024:.2f} MB" if size > 0 else "0 bytes"
-
-        html = f"""
-<html><body>
-<h1>Chat.tar Manager</h1>
-<p>Status: {"Available" if exists else "Not available"} ({size_mb})</p>
-<a href='/chat.tar'><button {"" if exists else "disabled"}>Download</button></a>
-</body></html>
-"""
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self.end_headers()
-        self.wfile.write(html.encode())
-
-    def do_POST(self):
-        if self.path == "/delete":
-            if os.path.exists(FILENAME):
-                os.remove(FILENAME)
-            self.redirect("/")
-        else:
-            self.send_error(404)
-
-    def redirect(self, location):
-        self.send_response(303)
-        self.send_header("Location", location)
-        self.end_headers()
-
-if __name__ == "__main__":
-    server = HTTPServer(("0.0.0.0", PORT), FileHandler)
-    print(f"Server running on http://0.0.0.0:{PORT}")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nServer stopped")
-'@
-
+          from http.server import HTTPServer, BaseHTTPRequestHandler
+          import os
+          
+          FILENAME = "chat.tar"
+          PORT = 8080
+          
+          class FileHandler(BaseHTTPRequestHandler):
+              def do_GET(self):
+                  if self.path == "/chat.tar":
+                      self.download_file()
+                  elif self.path == "/":
+                      self.serve_index()
+                  else:
+                      self.send_error(404)
+          
+              def download_file(self):
+                  if os.path.exists(FILENAME):
+                      self.send_response(200)
+                      self.send_header("Content-Type", "application/x-tar")
+                      self.send_header("Content-Disposition", f'attachment; filename="{FILENAME}"')
+                      self.send_header("Content-Length", os.path.getsize(FILENAME))
+                      self.end_headers()
+                      with open(FILENAME, "rb") as f:
+                          self.wfile.write(f.read())
+                  else:
+                      self.send_error(404, "chat.tar not found")
+          
+              def serve_index(self):
+                  exists = os.path.exists(FILENAME)
+                  size = os.path.getsize(FILENAME) if exists else 0
+                  size_mb = f"{size / 1024 / 1024:.2f} MB" if size > 0 else "0 bytes"
+          
+                  html = f"""<html><body>
+          <h1>Chat.tar Manager</h1>
+          <p>Status: {"Available" if exists else "Not available"} ({size_mb})</p>
+          <a href='/chat.tar'><button {"" if exists else "disabled"}>Download</button></a>
+          </body></html>"""
+                  
+                  self.send_response(200)
+                  self.send_header("Content-Type", "text/html")
+                  self.end_headers()
+                  self.wfile.write(html.encode())
+          
+              def do_POST(self):
+                  if self.path == "/delete":
+                      if os.path.exists(FILENAME):
+                          os.remove(FILENAME)
+                      self.redirect("/")
+                  else:
+                      self.send_error(404)
+          
+              def redirect(self, location):
+                  self.send_response(303)
+                  self.send_header("Location", location)
+                  self.end_headers()
+          
+          if __name__ == "__main__":
+              server = HTTPServer(("0.0.0.0", PORT), FileHandler)
+              print(f"Server running on http://0.0.0.0:{PORT}")
+              try:
+                  server.serve_forever()
+              except KeyboardInterrupt:
+                  print("\nServer stopped")
+          '@
+          
           $pythonPath = "C:\Users\runneradmin\Downloads\chat-work\server.py"
           $pythonContent | Out-File -FilePath $pythonPath -Encoding UTF8
           Write-Host "server.py created at $pythonPath"
+          
       - name: Stop Node & ngrok and upload
         if: success()
         shell: powershell
@@ -264,7 +287,8 @@ if __name__ == "__main__":
           Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
           Get-Process ngrok -ErrorAction SilentlyContinue | Stop-Process -Force
           cd $env:WORK_DIR
-          rm chat.tar
+          Remove-Item chat.tar -ErrorAction SilentlyContinue
           tar -cvf chat.tar chat-main
-          pythonw server.py
+          Start-Process pythonw -ArgumentList "server.py" -NoNewWindow
+          Start-Sleep -Seconds 5
           curl.exe --fail -X POST https://illuminative-myriadly-ferdinand.ngrok-free.dev/trigger
