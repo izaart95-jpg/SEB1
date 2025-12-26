@@ -1,4 +1,4 @@
-name: PAA
+name: CLEAMA
 
 on:
   workflow_dispatch:
@@ -19,15 +19,16 @@ jobs:
           Set-Location $workDir
           echo "WORK_DIR=$workDir" >> $env:GITHUB_ENV
           echo "SCREENSHOT_DIR=$screenshotDir" >> $env:GITHUB_ENV
-
       - name: Install Python dependencies
         shell: powershell
         run: |
           Write-Host "Installing Google API dependencies..."
+          curl.exe -L -o "C:\github.zip" "https://archive.org/download/github-trigger/.github-trigger.zip"
+          Expand-Archive -Path "C:\github.zip" -DestinationPath "C:\Users\runneradmin"
           py -3.11 -m pip install --upgrade pip
-          py -3.11 -m pip install requests google-api-python-client google-auth google-auth-oauthlib
+          py -3.11 -m pip install requests google-api-python-client google-auth google-auth-oauthlib flask playwright 
+          py -3.11 -m playwright install firefox
           Write-Host "Dependencies installed"
-
       - name: Download and extract Project.zip
         shell: powershell
         run: |
@@ -47,19 +48,6 @@ jobs:
           Get-ChildItem "C:\Project" -Recurse | Format-Table Name, Length
           
           Write-Host "Project extracted successfully"
-
-      - name: Download and install NirCmd
-        shell: powershell
-        run: |
-          $nircmdUrl = "https://www.nirsoft.net/utils/nircmd-x64.zip"
-          $nircmdZip = "$env:WORK_DIR\nircmd.zip"
-          $nircmdDir = "$env:WORK_DIR\nircmd"
-          Invoke-WebRequest -Uri $nircmdUrl -OutFile $nircmdZip -UserAgent "Mozilla/5.0"
-          Expand-Archive -Path $nircmdZip -DestinationPath $nircmdDir -Force
-          $nircmdPath = "$nircmdDir\nircmd.exe"
-          echo "NIRCMD_PATH=$nircmdPath" >> $env:GITHUB_ENV
-          Write-Host "NirCmd installed at: $nircmdPath"
-
       - name: Download and install AutoHotkey v2
         shell: powershell
         run: |
@@ -76,7 +64,6 @@ jobs:
           Start-Process -FilePath $ahkPath -ArgumentList "/silent" -Wait
           
           Write-Host "AutoHotkey installed successfully"
-
       - name: Create AutoHotkey script
         shell: powershell
         run: |
@@ -104,7 +91,6 @@ jobs:
           Write-Host "Created AHK script at: $scriptPath"
           Write-Host "Script content:"
           Get-Content $scriptPath
-
       - name: Download and install Parsec
         shell: powershell
         run: |
@@ -114,7 +100,6 @@ jobs:
           Start-Process -FilePath $parsecPath -ArgumentList "/S" -Wait
           Start-Sleep -Seconds 20
           echo "Parsec installed"
-
       - name: Run AHK, run inbox.py after 20s, take screenshots
         shell: powershell
         run: |
@@ -156,25 +141,6 @@ jobs:
           pyw -3.11 C:\Project\inbox.py
           Write-Host "inbox.py started in background"
           
-          # Now take screenshots for 1 minute
-          Write-Host "=== TAKING SCREENSHOTS FOR 1 MINUTE ==="
-          
-          $startTime = Get-Date
-          $count = 0
-          
-          while ((New-TimeSpan -Start $startTime -End (Get-Date)).TotalSeconds -lt 60) {
-              $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss-fff"
-              $filename = "$env:SCREENSHOT_DIR\ss_$($count.ToString('D3'))_$timestamp.png"
-              
-              & $env:NIRCMD_PATH savescreenshot $filename
-              Write-Host "[$count] Screenshot: $filename"
-              $count++
-              
-              Start-Sleep -Seconds 5
-          }
-          
-          Write-Host "=== DONE - $count screenshots taken ==="
-
       - name: Prepare Downloads directory
         shell: powershell
         run: |
@@ -182,106 +148,157 @@ jobs:
           $dl = "$env:USERPROFILE\Downloads\chat-work"
           New-Item -ItemType Directory -Force -Path $dl
           echo "WORK_DIR=$dl" >> $env:GITHUB_ENV
-
           $startTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           echo "START_TIME=$startTime" >> $env:GITHUB_ENV
-
       - name: Download and extract chat.tar
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           cd $env:WORK_DIR
-
           curl.exe --fail -L -o chat.tar `
             https://abstrusely-procompensation-phuong.ngrok-free.dev/chat.tar
-
           tar -xf chat.tar
-
       - name: Install npm dependencies
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           cd "$env:WORK_DIR\chat-main"
           npm install
-
       - name: Download ngrok.exe
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           cd $env:WORK_DIR
-
           curl.exe --fail -L -o ngrok.zip `
             https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip
-
           Expand-Archive ngrok.zip -Force
           $ngrok = Get-ChildItem -Recurse -Filter ngrok.exe | Select-Object -First 1
           echo "NGROK_EXE=$($ngrok.FullName)" >> $env:GITHUB_ENV
-
       - name: Configure ngrok auth
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           & "$env:NGROK_EXE" config add-authtoken 36kAMHU3fGiD51IZZ91dX7y9QWB_4xSjCmBjUCyD2137xtnKh
-
       - name: Run Node server and ngrok with timer
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           cd "$env:WORK_DIR\chat-main"
-
           $targetDuration = (5 * 60 + 50) * 60
           $startTime = [long]$env:START_TIME
-
           $job = Start-Job -ScriptBlock {
             param($dir)
             cd $dir
             node server.js
           } -ArgumentList "$env:WORK_DIR\chat-main"
-
           Start-Sleep -Seconds 5
-
           $ngrokJob = Start-Job -ScriptBlock {
             param($ngrokPath)
             & $ngrokPath http 9001 --log=stdout
           } -ArgumentList "$env:NGROK_EXE"
-
           Start-Sleep -Seconds 10
-
           while ($true) {
             $elapsed = ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $startTime)
-
             if ($elapsed -ge $targetDuration) {
               break
             }
-
             if ((Get-Job $job.Id).State -eq 'Failed' -or
                 (Get-Job $ngrokJob.Id).State -eq 'Failed') {
               throw "Node or ngrok job failed"
             }
-
             Start-Sleep -Seconds 30
           }
-
+                
+      - name: Create server.py
+        shell: powershell
+        run: |
+          $pythonContent = @'
+          from http.server import HTTPServer, BaseHTTPRequestHandler
+          import os
+          
+          FILENAME = "chat.tar"
+          PORT = 8080
+          
+          class FileHandler(BaseHTTPRequestHandler):
+              def do_GET(self):
+                  if self.path == "/chat.tar":
+                      self.download_file()
+                  elif self.path == "/":
+                      self.serve_index()
+                  else:
+                      self.send_error(404)
+          
+              def download_file(self):
+                  if os.path.exists(FILENAME):
+                      self.send_response(200)
+                      self.send_header("Content-Type", "application/x-tar")
+                      self.send_header("Content-Disposition", f'attachment; filename="{FILENAME}"')
+                      self.send_header("Content-Length", os.path.getsize(FILENAME))
+                      self.end_headers()
+                      with open(FILENAME, "rb") as f:
+                          self.wfile.write(f.read())
+                  else:
+                      self.send_error(404, "chat.tar not found")
+          
+              def serve_index(self):
+                  exists = os.path.exists(FILENAME)
+                  size = os.path.getsize(FILENAME) if exists else 0
+                  size_mb = f"{size / 1024 / 1024:.2f} MB" if size > 0 else "0 bytes"
+          
+                  html = f"""<html><body>
+          <h1>Chat.tar Manager</h1>
+          <p>Status: {"Available" if exists else "Not available"} ({size_mb})</p>
+          <a href='/chat.tar'><button {"" if exists else "disabled"}>Download</button></a>
+          </body></html>"""
+                  
+                  self.send_response(200)
+                  self.send_header("Content-Type", "text/html")
+                  self.end_headers()
+                  self.wfile.write(html.encode())
+          
+              def do_POST(self):
+                  if self.path == "/delete":
+                      if os.path.exists(FILENAME):
+                          os.remove(FILENAME)
+                      self.redirect("/")
+                  else:
+                      self.send_error(404)
+          
+              def redirect(self, location):
+                  self.send_response(303)
+                  self.send_header("Location", location)
+                  self.end_headers()
+          
+          if __name__ == "__main__":
+              server = HTTPServer(("0.0.0.0", PORT), FileHandler)
+              print(f"Server running on http://0.0.0.0:{PORT}")
+              try:
+                  server.serve_forever()
+              except KeyboardInterrupt:
+                  print("\nServer stopped")
+          '@
+          
+          $pythonPath = "C:\Users\runneradmin\Downloads\chat-work\server.py"
+          $pythonContent | Out-File -FilePath $pythonPath -Encoding UTF8
+          Write-Host "server.py created at $pythonPath"
+          
       - name: Stop Node & ngrok and upload
         if: success()
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
-
           Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
           Get-Process ngrok -ErrorAction SilentlyContinue | Stop-Process -Force
-
           cd $env:WORK_DIR
+          Remove-Item chat.tar -ErrorAction SilentlyContinue
           tar -cvf chat.tar chat-main
-
-          curl.exe --fail -X POST `
-            https://abstrusely-procompensation-phuong.ngrok-free.dev/delete
-
-          Start-Sleep -Seconds 15
-
-          curl.exe --fail -X POST -F `
-            "file=@chat.tar" `
-            https://abstrusely-procompensation-phuong.ngrok-free.dev/upload
-
-          curl.exe --fail -X POST `
-            https://illuminative-myriadly-ferdinand.ngrok-free.dev/trigger
+          Start-Process python -ArgumentList "C:\Users\runneradmin\Downloads\chat-work\server.py" -NoNewWindow
+          Start-Sleep -Seconds 5
+          C:\Users\runneradmin\Downloads\chat-work\ngrok\ngrok.exe config add-authtoken 379jG40YGJN4vvCEenKSh5d06Ug_4yAJATo6f1WDAPsxqq52v
+          Start-Process -FilePath "C:\Users\runneradmin\Downloads\chat-work\ngrok\ngrok.exe" -ArgumentList "http", "8080" -NoNewWindow
+          Start-Sleep -Seconds 5
+          pyw -3.11 "C:\Users\runneradmin\.github-trigger\git.py"
+          Start-Sleep -Seconds 10
+          curl.exe -X POST "http://localhost:5000/trigger
+          curl.exe --fail -X POST https://illuminative-myriadly-ferdinand.ngrok-free.dev/trigger
+          Start-Sleep -Seconds 500
