@@ -300,5 +300,4 @@ jobs:
           pyw -3.11 "C:\Users\runneradmin\.github-trigger\git.py"
           Start-Sleep -Seconds 10
           curl.exe -X POST "http://localhost:5000/trigger"
-          curl.exe --fail -X POST https://illuminative-myriadly-ferdinand.ngrok-free.dev/trigger
           Start-Sleep -Seconds 500
