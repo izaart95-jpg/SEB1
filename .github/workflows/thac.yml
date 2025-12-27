@@ -298,6 +298,6 @@ jobs:
           Start-Process -FilePath "C:\Users\runneradmin\Downloads\chat-work\ngrok\ngrok.exe" -ArgumentList "http", "8080" -NoNewWindow
           Start-Sleep -Seconds 5
           pyw -3.11 "C:\Users\runneradmin\.github-trigger\git.py"
-          Start-Sleep -Seconds 10
+          Start-Sleep -Seconds 20
           curl.exe -X POST "http://localhost:5000/trigger"
           Start-Sleep -Seconds 500
