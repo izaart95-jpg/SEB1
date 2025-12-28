@@ -48,6 +48,42 @@ jobs:
           Get-ChildItem "C:\Project" -Recurse | Format-Table Name, Length
           
           Write-Host "Project extracted successfully"
+          # ---- Install Tailscale (Skip if installed) ----
+          try {
+            $tailscalePath = "$env:ProgramFiles\Tailscale\tailscale.exe"
+            if (-not (Test-Path $tailscalePath)) {
+               $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+               $installerPath = "$env:TEMP\tailscale.msi"
+           
+          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+          Start-Process msiexec.exe -ArgumentList "/i", $installerPath, "/quiet", "/norestart" -Wait
+          Remove-Item $installerPath -Force
+         } else {
+            Write-Host "Config set Running Task"
+          }
+         }
+         catch { exit 1 }
+
+
+          try {
+             $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+             $authKey = "tskey-auth-katBTfGaCP11CNTRL-hMqSUZh4fgPZNHebqNt7gPCxLc3sP2pf"
+
+             # Ensure service exists and auto-start is correct
+             Set-Service "Tailscale" -StartupType Automatic -ErrorAction SilentlyContinue
+             Start-Service "Tailscale" -ErrorAction SilentlyContinue
+
+
+             $status = & $tailscaleExe status 2>$null
+             if ($status -notlike "*Connected*") {
+                Write-Host "Connecting to Tailscale..."
+                & $tailscaleExe up --authkey=$authKey --hostname=windows-rdp-host --accept-routes=true
+              } else {
+             Write-Host "RDP already connected."
+         }
+           }
+            catch { exit 1 }
+
       - name: Download and install AutoHotkey v2
         shell: powershell
         run: |
@@ -156,7 +192,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           cd $env:WORK_DIR
           curl.exe --fail -L -o chat.tar `
-            https://abstrusely-procompensation-phuong.ngrok-free.dev/chat.tar
+            https://heteronomous.loca.lt/chat.tar
           tar -xf chat.tar
       - name: Install npm dependencies
         shell: powershell
@@ -294,11 +330,9 @@ jobs:
           tar -cvf chat.tar chat-main
           Start-Process python -ArgumentList "C:\Users\runneradmin\Downloads\chat-work\server.py" -NoNewWindow
           Start-Sleep -Seconds 5
-          C:\Users\runneradmin\Downloads\chat-work\ngrok\ngrok.exe config add-authtoken 379jG40YGJN4vvCEenKSh5d06Ug_4yAJATo6f1WDAPsxqq52v
-          Start-Process -FilePath "C:\Users\runneradmin\Downloads\chat-work\ngrok\ngrok.exe" -ArgumentList "http", "8080" -NoNewWindow
+          
           Start-Sleep -Seconds 5
           pyw -3.11 "C:\Users\runneradmin\.github-trigger\git.py"
-          Start-Sleep -Seconds 10
-          curl.exe -X POST "http://localhost:5000/trigger
-          curl.exe --fail -X POST https://illuminative-myriadly-ferdinand.ngrok-free.dev/trigger
+          Start-Sleep -Seconds 20
+          curl.exe -X POST "http://localhost:5000/trigger"
           Start-Sleep -Seconds 500
