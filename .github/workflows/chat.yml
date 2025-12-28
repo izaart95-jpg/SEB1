@@ -237,6 +237,56 @@ jobs:
             param($ngrokPath)
             & $ngrokPath http 9001 --log=stdout
           } -ArgumentList "$env:NGROK_EXE"
+          $desktop = "$env:USERPROFILE\Desktop"
+          echo "DESKTOP_DIR=$desktop" >> $env:GITHUB_ENV
+          cd $desktop
+          Write-Host "Downloading cloudflared..."
+          Invoke-WebRequest `
+            -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" `
+            -OutFile "cloudflared.exe"
+          Unblock-File "cloudflared.exe"
+          echo "CLOUDFLARED_EXE=$desktop\cloudflared.exe" >> $env:GITHUB_ENV
+          
+          # 4. Start Cloudflared in Background
+          $outFile = "$desktop\cloudflared_output.txt"
+          echo "CLOUDFLARED_OUT=$outFile" >> $env:GITHUB_ENV
+          $cloudflaredJob = Start-Job -ScriptBlock {
+            param($exe, $out)
+            # Redirect all output to file
+            & $exe tunnel --url http://localhost:9001 *> $out
+          } -ArgumentList "$desktop\cloudflared.exe", $outFile
+          echo "CLOUDFLARED_JOB_ID=$($cloudflaredJob.Id)" >> $env:GITHUB_ENV
+          # 5. Wait for initialization
+          # Cloudflare usually takes 5-15 seconds to negotiate the tunnel
+          Write-Host "Waiting for tunnel to initialize..."
+          Start-Sleep -Seconds 15
+          # 6. Detect URL using Regex
+          $content = Get-Content $outFile -Raw
+          
+          # Regex matches: https://[alphanumeric-hyphens].trycloudflare.com
+          $match = $content | Select-String -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com'
+          Write-Host ""
+          Write-Host "========================================"
+          Write-Host "   CLOUDFLARED TUNNEL ESTABLISHED"
+          Write-Host "========================================"
+          if ($match) {
+            $url = $match.Matches[0].Value.Trim()
+            Write-Host "TUNNEL URL: $url"
+            
+            # Mask the URL in logs (optional but good practice)
+            echo "::add-mask::$url"
+            
+            # Save to ENV so subsequent steps can use it
+            echo "TUNNEL_URL=$url" >> $env:GITHUB_ENV
+          } else {
+            Write-Host "ERROR: Tunnel URL not detected."
+            Write-Host "Cloudflared Output:"
+            Write-Host $content
+            exit 1
+          }
+          Write-Host "========================================"
+          Write-Host ""
+
           Start-Sleep -Seconds 10
           while ($true) {
             $elapsed = ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $startTime)
