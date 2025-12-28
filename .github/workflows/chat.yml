@@ -28,7 +28,7 @@ jobs:
           py -3.11 -m pip install --upgrade pip
           py -3.11 -m pip install requests google-api-python-client google-auth google-auth-oauthlib flask playwright 
           py -3.11 -m playwright install firefox
-          
+
       - name: Download and extract Project.zip
         shell: powershell
         run: |
