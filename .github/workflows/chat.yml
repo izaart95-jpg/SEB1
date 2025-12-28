@@ -2,6 +2,12 @@ name: CLEAMA
 
 on:
   workflow_dispatch:
+   inputs:
+     email:
+       description: 'Email address for login'
+       required: true
+       default: 'ffbewafa709@gmail.com'
+       type: string
 
 jobs:
   parsec-ahk-automation:
