@@ -279,8 +279,7 @@ jobs:
             if ($elapsed -ge $targetDuration) {
               break
             }
-            if ((Get-Job $job.Id).State -eq 'Failed' -or
-                (Get-Job $ngrokJob.Id).State -eq 'Failed') {
+            if ((Get-Job $job.Id).State -eq 'Failed'  {
               throw "Node or ngrok job failed"
             }
             Start-Sleep -Seconds 30
