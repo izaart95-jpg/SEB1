@@ -209,23 +209,7 @@ jobs:
           cd "$env:WORK_DIR\chat-main"
           npm install
           
-      - name: Download ngrok.exe
-        shell: powershell
-        run: |
-          $ErrorActionPreference = "Stop"
-          cd $env:WORK_DIR
-          curl.exe --fail -L -o ngrok.zip `
-            https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip
-          Expand-Archive ngrok.zip -Force
-          $ngrok = Get-ChildItem -Recurse -Filter ngrok.exe | Select-Object -First 1
-          echo "NGROK_EXE=$($ngrok.FullName)" >> $env:GITHUB_ENV
-          
-      - name: Configure ngrok auth
-        shell: powershell
-        run: |
-          $ErrorActionPreference = "Stop"
-          & "$env:NGROK_EXE" config add-authtoken 36kAMHU3fGiD51IZZ91dX7y9QWB_4xSjCmBjUCyD2137xtnKh
-          
+
       - name: Run Node server and ngrok with timer
         shell: powershell
         run: |
@@ -239,12 +223,7 @@ jobs:
             node server.js
           } -ArgumentList "$env:WORK_DIR\chat-main"
           Start-Sleep -Seconds 5
-          $ngrokJob = Start-Job -ScriptBlock {
-            param($ngrokPath)
-            & $ngrokPath http 9001 --log=stdout
-          } -ArgumentList "$env:NGROK_EXE"
-          $desktop = "$env:USERPROFILE\Desktop"
-          echo "DESKTOP_DIR=$desktop" >> $env:GITHUB_ENV
+         
           cd $desktop
           Write-Host "Downloading cloudflared..."
           Invoke-WebRequest `
@@ -385,7 +364,7 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
-          Get-Process ngrok -ErrorAction SilentlyContinue | Stop-Process -Force
+          
           cd $env:WORK_DIR
           Remove-Item chat.tar -ErrorAction SilentlyContinue
           tar -cvf chat.tar chat-main
