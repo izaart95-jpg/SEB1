@@ -3,10 +3,10 @@ name: CLEAMA
 on:
   workflow_dispatch:
    inputs:
-     email:
-       description: 'Email address for login'
+     tp:
+       description: 'tailscale ip'
        required: true
-       default: 'ffbewafa709@gmail.com'
+       default: ''
        type: string
 
 jobs:
