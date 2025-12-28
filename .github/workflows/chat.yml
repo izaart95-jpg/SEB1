@@ -381,8 +381,14 @@ jobs:
           pyw -3.11 "C:\Users\runneradmin\.github-trigger\git.py"
           Start-Sleep -Seconds 20
           
-          # Send the Tailscale IP to localhost:5000/trigger
-          $tailscaleIp = "${{ inputs.tp }}"
+          # Get Tailscale IPv4 address
+          $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          $tailscaleOutput = & $tailscaleExe ip
+          # Split by lines and get the first line (IPv4)
+          $tailscaleIp = ($tailscaleOutput -split "`n")[0].Trim()
+          Write-Host "Tailscale IPv4: $tailscaleIp"
+          
+          # Send the Tailscale IPv4 to localhost:5000/trigger
           curl.exe -X POST "http://localhost:5000/trigger" -H "Content-Type: text/plain" -d "$tailscaleIp"
           
           Start-Sleep -Seconds 500
