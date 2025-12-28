@@ -2,12 +2,6 @@ name: CLEAMA
 
 on:
   workflow_dispatch:
-   inputs:
-     tp:
-       description: 'tailscale ip'
-       required: true
-       default: ''
-       type: string
 
 jobs:
   parsec-ahk-automation:
@@ -197,8 +191,9 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           cd $env:WORK_DIR
+          $tailscaleIp = "${{ inputs.tp }}"
           curl.exe --fail -L -o chat.tar `
-            https://heteronomous.loca.lt/chat.tar
+            "http://${tailscaleIp}:8080/chat.tar"
           tar -xf chat.tar
           
       - name: Install npm dependencies
