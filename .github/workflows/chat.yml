@@ -19,6 +19,7 @@ jobs:
           Set-Location $workDir
           echo "WORK_DIR=$workDir" >> $env:GITHUB_ENV
           echo "SCREENSHOT_DIR=$screenshotDir" >> $env:GITHUB_ENV
+          
       - name: Install Python dependencies
         shell: powershell
         run: |
@@ -28,6 +29,7 @@ jobs:
           py -3.11 -m pip install --upgrade pip
           py -3.11 -m pip install requests google-api-python-client google-auth google-auth-oauthlib flask playwright 
           py -3.11 -m playwright install firefox
+          
       - name: Download and extract Project.zip
         shell: powershell
         run: |
@@ -54,35 +56,30 @@ jobs:
                $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
                $installerPath = "$env:TEMP\tailscale.msi"
            
-          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
-          Start-Process msiexec.exe -ArgumentList "/i", $installerPath, "/quiet", "/norestart" -Wait
-          Remove-Item $installerPath -Force
-         } else {
-            Write-Host "Config set Running Task"
+              Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+              Start-Process msiexec.exe -ArgumentList "/i", $installerPath, "/quiet", "/norestart" -Wait
+              Remove-Item $installerPath -Force
+            } else {
+              Write-Host "Config set Running Task"
+            }
           }
-         }
-         catch { exit 1 }
-
-
+          catch { exit 1 }
           try {
              $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
              $authKey = "tskey-auth-katBTfGaCP11CNTRL-hMqSUZh4fgPZNHebqNt7gPCxLc3sP2pf"
-
              # Ensure service exists and auto-start is correct
              Set-Service "Tailscale" -StartupType Automatic -ErrorAction SilentlyContinue
              Start-Service "Tailscale" -ErrorAction SilentlyContinue
-
-
              $status = & $tailscaleExe status 2>$null
              if ($status -notlike "*Connected*") {
                 Write-Host "Connecting to Tailscale..."
                 & $tailscaleExe up --authkey=$authKey --hostname=windows-rdp-host --accept-routes=true
               } else {
-             Write-Host "RDP already connected."
-         }
-           }
-            catch { exit 1 }
-
+                Write-Host "RDP already connected."
+              }
+          }
+          catch { exit 1 }
+          
       - name: Download and install AutoHotkey v2
         shell: powershell
         run: |
@@ -99,6 +96,7 @@ jobs:
           Start-Process -FilePath $ahkPath -ArgumentList "/silent" -Wait
           
           Write-Host "AutoHotkey installed successfully"
+          
       - name: Create AutoHotkey script
         shell: powershell
         run: |
@@ -126,6 +124,7 @@ jobs:
           Write-Host "Created AHK script at: $scriptPath"
           Write-Host "Script content:"
           Get-Content $scriptPath
+          
       - name: Download and install Parsec
         shell: powershell
         run: |
@@ -135,6 +134,7 @@ jobs:
           Start-Process -FilePath $parsecPath -ArgumentList "/S" -Wait
           Start-Sleep -Seconds 20
           echo "Parsec installed"
+          
       - name: Run AHK, run inbox.py after 20s, take screenshots
         shell: powershell
         run: |
@@ -185,6 +185,7 @@ jobs:
           echo "WORK_DIR=$dl" >> $env:GITHUB_ENV
           $startTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           echo "START_TIME=$startTime" >> $env:GITHUB_ENV
+          
       - name: Download and extract chat.tar
         shell: powershell
         run: |
@@ -193,12 +194,14 @@ jobs:
           curl.exe --fail -L -o chat.tar `
             https://heteronomous.loca.lt/chat.tar
           tar -xf chat.tar
+          
       - name: Install npm dependencies
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           cd "$env:WORK_DIR\chat-main"
           npm install
+          
       - name: Download ngrok.exe
         shell: powershell
         run: |
@@ -209,11 +212,13 @@ jobs:
           Expand-Archive ngrok.zip -Force
           $ngrok = Get-ChildItem -Recurse -Filter ngrok.exe | Select-Object -First 1
           echo "NGROK_EXE=$($ngrok.FullName)" >> $env:GITHUB_ENV
+          
       - name: Configure ngrok auth
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           & "$env:NGROK_EXE" config add-authtoken 36kAMHU3fGiD51IZZ91dX7y9QWB_4xSjCmBjUCyD2137xtnKh
+          
       - name: Run Node server and ngrok with timer
         shell: powershell
         run: |
@@ -243,7 +248,7 @@ jobs:
             }
             Start-Sleep -Seconds 30
           }
-                
+          
       - name: Create server.py
         shell: powershell
         run: |
