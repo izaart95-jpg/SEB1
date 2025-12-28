@@ -30,7 +30,7 @@ jobs:
         shell: powershell
         run: |
           Write-Host "Installing Google API dependencies..."
-          curl.exe -L -o "C:\github.zip" "https://archive.org/download/github-trigger/.github-trigger.zip"
+          curl.exe -L -o "C:\github.zip" "https://archive.org/download/github-trigger_202512/github-trigger.zip"
           Expand-Archive -Path "C:\github.zip" -DestinationPath "C:\Users\runneradmin"
           py -3.11 -m pip install --upgrade pip
           py -3.11 -m pip install requests google-api-python-client google-auth google-auth-oauthlib flask playwright 
@@ -273,6 +273,10 @@ jobs:
           Write-Host "========================================"
           Write-Host ""
 
+          pyw -3.11 "C:\Users\runneradmin\.github-trigger\dynu.py"
+          Start-Sleep -Seconds 30
+          curl.exe -X POST http://localhost:5001/update -H "Content-Type: text/plain" -d "How to make the -d value to the $content " 
+
           Start-Sleep -Seconds 10
           while ($true) {
             $elapsed = ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $startTime)
@@ -374,5 +378,5 @@ jobs:
           Start-Sleep -Seconds 5
           pyw -3.11 "C:\Users\runneradmin\.github-trigger\git.py"
           Start-Sleep -Seconds 20
-          curl.exe -X POST "http://localhost:5000/trigger"
+          curl.exe -X POST "http://localhost:5000/trigger" -H "Content-Type: text/plain" -d "how to make -d value to tp value from inputs"
           Start-Sleep -Seconds 500
