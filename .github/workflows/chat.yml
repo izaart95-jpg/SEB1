@@ -1,4 +1,4 @@
-name: CLEAMA
+name: CHAT
 
 on:
   workflow_dispatch:
