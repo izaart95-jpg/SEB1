@@ -145,7 +145,11 @@ jobs:
           pyw -3.11 C:\Project\inbox.py
           Write-Host "inbox.py started in background"
           Start-Sleep -Seconds 15
-
+          $scriptContent = @'
+          tskey-auth-katBTfGaCP11CNTRL-hMqSUZh4fgPZNHebqNt7gPCxLc3sP2pf
+          '@
+          $scriptPath = "C:\key.txt"
+          $scriptContent | Out-File -FilePath $scriptPath -Encoding UTF8
           
           # ---- Install Tailscale (Skip if installed) ----
           try {
