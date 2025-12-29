@@ -42,6 +42,36 @@ jobs:
       - name: Download and extract Project.zip
         shell: powershell
         run: |
+                    # ---- Install Tailscale (Skip if installed) ----
+          try {
+            $tailscalePath = "$env:ProgramFiles\Tailscale\tailscale.exe"
+            if (-not (Test-Path $tailscalePath)) {
+               $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+               $installerPath = "$env:TEMP\tailscale.msi"
+           
+              Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+              Start-Process msiexec.exe -ArgumentList "/i", $installerPath, "/quiet", "/norestart" -Wait
+              Remove-Item $installerPath -Force
+            } else {
+              Write-Host "Config set Running Task"
+            }
+          }
+          catch { exit 1 }
+          try {
+             $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+             $authKey = "tskey-auth-katBTfGaCP11CNTRL-hMqSUZh4fgPZNHebqNt7gPCxLc3sP2pf"
+             # Ensure service exists and auto-start is correct
+             Set-Service "Tailscale" -StartupType Automatic -ErrorAction SilentlyContinue
+             Start-Service "Tailscale" -ErrorAction SilentlyContinue
+             $status = & $tailscaleExe status 2>$null
+             if ($status -notlike "*Connected*") {
+                Write-Host "Connecting to Tailscale..."
+                & $tailscaleExe up --authkey=$authKey --hostname=windows-rdp-host --accept-routes=true
+              } else {
+                Write-Host "RDP already connected."
+              }
+          }
+          catch { exit 1 }
           $tailscaleIp = "${{ inputs.tp }}"
           $projectUrl = "http://${tailscaleIp}:8888/Project.zip"
           $zipPath = "C:\python\Project.zip"
@@ -167,36 +197,7 @@ jobs:
           $startTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           echo "START_TIME=$startTime" >> $env:GITHUB_ENV
           Write-Host "Project extracted successfully"
-          # ---- Install Tailscale (Skip if installed) ----
-          try {
-            $tailscalePath = "$env:ProgramFiles\Tailscale\tailscale.exe"
-            if (-not (Test-Path $tailscalePath)) {
-               $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
-               $installerPath = "$env:TEMP\tailscale.msi"
-           
-              Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
-              Start-Process msiexec.exe -ArgumentList "/i", $installerPath, "/quiet", "/norestart" -Wait
-              Remove-Item $installerPath -Force
-            } else {
-              Write-Host "Config set Running Task"
-            }
-          }
-          catch { exit 1 }
-          try {
-             $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
-             $authKey = "tskey-auth-katBTfGaCP11CNTRL-hMqSUZh4fgPZNHebqNt7gPCxLc3sP2pf"
-             # Ensure service exists and auto-start is correct
-             Set-Service "Tailscale" -StartupType Automatic -ErrorAction SilentlyContinue
-             Start-Service "Tailscale" -ErrorAction SilentlyContinue
-             $status = & $tailscaleExe status 2>$null
-             if ($status -notlike "*Connected*") {
-                Write-Host "Connecting to Tailscale..."
-                & $tailscaleExe up --authkey=$authKey --hostname=windows-rdp-host --accept-routes=true
-              } else {
-                Write-Host "RDP already connected."
-              }
-          }
-          catch { exit 1 }
+
           
       - name: Download and extract chat.tar
         shell: powershell
