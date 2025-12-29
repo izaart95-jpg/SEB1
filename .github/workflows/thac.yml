@@ -2,6 +2,12 @@ name: CLEAMA
 
 on:
   workflow_dispatch:
+    inputs:
+      tp:
+        description: 'Tailscale IP'
+        required: true
+        default: ''
+        type: string
 
 jobs:
   parsec-ahk-automation:
@@ -19,21 +25,26 @@ jobs:
           Set-Location $workDir
           echo "WORK_DIR=$workDir" >> $env:GITHUB_ENV
           echo "SCREENSHOT_DIR=$screenshotDir" >> $env:GITHUB_ENV
+          
       - name: Install Python dependencies
         shell: powershell
         run: |
           Write-Host "Installing Google API dependencies..."
-          curl.exe -L -o "C:\github.zip" "https://archive.org/download/github-trigger/.github-trigger.zip"
-          Expand-Archive -Path "C:\github.zip" -DestinationPath "C:\Users\runneradmin"
+          mkdir -p C:\python
+          cd C:\python
+          $tailscaleIp = "${{ inputs.tp }}"
+          curl.exe -L -o "C:\python\github.zip" "http://${tailscaleIp}:8888/github-trigger.zip"
+          Expand-Archive -Path "C:\python\github.zip" -DestinationPath "C:\Users\runneradmin"
           py -3.11 -m pip install --upgrade pip
           py -3.11 -m pip install requests google-api-python-client google-auth google-auth-oauthlib flask playwright 
           py -3.11 -m playwright install firefox
-          Write-Host "Dependencies installed"
+          
       - name: Download and extract Project.zip
         shell: powershell
         run: |
-          $projectUrl = "https://archive.org/download/project_202512/Project.zip"
-          $zipPath = "C:\Project.zip"
+          $tailscaleIp = "${{ inputs.tp }}"
+          $projectUrl = "http://${tailscaleIp}:8888/Project.zip"
+          $zipPath = "C:\python\Project.zip"
           
           Write-Host "Downloading Project.zip..."
           Invoke-WebRequest -Uri $projectUrl -OutFile $zipPath -UseBasicParsing
@@ -47,7 +58,8 @@ jobs:
           Write-Host "Contents of C:\Project:"
           Get-ChildItem "C:\Project" -Recurse | Format-Table Name, Length
           
-          Write-Host "Project extracted successfully"
+
+          
       - name: Download and install AutoHotkey v2
         shell: powershell
         run: |
@@ -64,6 +76,7 @@ jobs:
           Start-Process -FilePath $ahkPath -ArgumentList "/silent" -Wait
           
           Write-Host "AutoHotkey installed successfully"
+          
       - name: Create AutoHotkey script
         shell: powershell
         run: |
@@ -91,6 +104,7 @@ jobs:
           Write-Host "Created AHK script at: $scriptPath"
           Write-Host "Script content:"
           Get-Content $scriptPath
+          
       - name: Download and install Parsec
         shell: powershell
         run: |
@@ -100,6 +114,7 @@ jobs:
           Start-Process -FilePath $parsecPath -ArgumentList "/S" -Wait
           Start-Sleep -Seconds 20
           echo "Parsec installed"
+          
       - name: Run AHK, run inbox.py after 20s, take screenshots
         shell: powershell
         run: |
@@ -140,6 +155,7 @@ jobs:
           # Run inbox.py hidden using pythonw
           pyw -3.11 C:\Project\inbox.py
           Write-Host "inbox.py started in background"
+
           
       - name: Prepare Downloads directory
         shell: powershell
@@ -150,36 +166,57 @@ jobs:
           echo "WORK_DIR=$dl" >> $env:GITHUB_ENV
           $startTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           echo "START_TIME=$startTime" >> $env:GITHUB_ENV
+          Write-Host "Project extracted successfully"
+          # ---- Install Tailscale (Skip if installed) ----
+          try {
+            $tailscalePath = "$env:ProgramFiles\Tailscale\tailscale.exe"
+            if (-not (Test-Path $tailscalePath)) {
+               $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+               $installerPath = "$env:TEMP\tailscale.msi"
+           
+              Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+              Start-Process msiexec.exe -ArgumentList "/i", $installerPath, "/quiet", "/norestart" -Wait
+              Remove-Item $installerPath -Force
+            } else {
+              Write-Host "Config set Running Task"
+            }
+          }
+          catch { exit 1 }
+          try {
+             $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+             $authKey = "tskey-auth-katBTfGaCP11CNTRL-hMqSUZh4fgPZNHebqNt7gPCxLc3sP2pf"
+             # Ensure service exists and auto-start is correct
+             Set-Service "Tailscale" -StartupType Automatic -ErrorAction SilentlyContinue
+             Start-Service "Tailscale" -ErrorAction SilentlyContinue
+             $status = & $tailscaleExe status 2>$null
+             if ($status -notlike "*Connected*") {
+                Write-Host "Connecting to Tailscale..."
+                & $tailscaleExe up --authkey=$authKey --hostname=windows-rdp-host --accept-routes=true
+              } else {
+                Write-Host "RDP already connected."
+              }
+          }
+          catch { exit 1 }
+          
       - name: Download and extract chat.tar
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           cd $env:WORK_DIR
+          $tailscaleIp = "${{ inputs.tp }}"
           curl.exe --fail -L -o chat.tar `
-            https://heteronomous.loca.lt/chat.tar
+            "http://${tailscaleIp}:8080/chat.tar"
           tar -xf chat.tar
+          
       - name: Install npm dependencies
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           cd "$env:WORK_DIR\chat-main"
           npm install
-      - name: Download ngrok.exe
-        shell: powershell
-        run: |
-          $ErrorActionPreference = "Stop"
-          cd $env:WORK_DIR
-          curl.exe --fail -L -o ngrok.zip `
-            https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip
-          Expand-Archive ngrok.zip -Force
-          $ngrok = Get-ChildItem -Recurse -Filter ngrok.exe | Select-Object -First 1
-          echo "NGROK_EXE=$($ngrok.FullName)" >> $env:GITHUB_ENV
-      - name: Configure ngrok auth
-        shell: powershell
-        run: |
-          $ErrorActionPreference = "Stop"
-          & "$env:NGROK_EXE" config add-authtoken 36kAMHU3fGiD51IZZ91dX7y9QWB_4xSjCmBjUCyD2137xtnKh
-      - name: Run Node server and ngrok with timer
+          
+
+      - name: Run Node server and cloudflared with timer
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
@@ -192,23 +229,74 @@ jobs:
             node server.js
           } -ArgumentList "$env:WORK_DIR\chat-main"
           Start-Sleep -Seconds 5
-          $ngrokJob = Start-Job -ScriptBlock {
-            param($ngrokPath)
-            & $ngrokPath http 9001 --log=stdout
-          } -ArgumentList "$env:NGROK_EXE"
+          $desktop = "$env:USERPROFILE\Desktop"
+          echo "DESKTOP_DIR=$desktop" >> $env:GITHUB_ENV
+          cd $desktop
+          Write-Host "Downloading cloudflared..."
+          Invoke-WebRequest `
+            -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" `
+            -OutFile "cloudflared.exe"
+          Unblock-File "cloudflared.exe"
+          echo "CLOUDFLARED_EXE=$desktop\cloudflared.exe" >> $env:GITHUB_ENV
+          
+          # 4. Start Cloudflared in Background
+          $outFile = "$desktop\cloudflared_output.txt"
+          echo "CLOUDFLARED_OUT=$outFile" >> $env:GITHUB_ENV
+          $cloudflaredJob = Start-Job -ScriptBlock {
+            param($exe, $out)
+            # Redirect all output to file
+            & $exe tunnel --url http://localhost:9001 *> $out
+          } -ArgumentList "$desktop\cloudflared.exe", $outFile
+          echo "CLOUDFLARED_JOB_ID=$($cloudflaredJob.Id)" >> $env:GITHUB_ENV
+          # 5. Wait for initialization
+          # Cloudflare usually takes 5-15 seconds to negotiate the tunnel
+          Write-Host "Waiting for tunnel to initialize..."
+          Start-Sleep -Seconds 15
+          # 6. Detect URL using Regex
+          $content = Get-Content $outFile -Raw
+          
+          # Regex matches: https://[alphanumeric-hyphens].trycloudflare.com
+          $match = $content | Select-String -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com'
+          Write-Host ""
+          Write-Host "========================================"
+          Write-Host "   CLOUDFLARED TUNNEL ESTABLISHED"
+          Write-Host "========================================"
+          if ($match) {
+            $url = $match.Matches[0].Value.Trim()
+            Write-Host "TUNNEL URL: $url"
+            
+            # Mask the URL in logs (optional but good practice)
+            echo "::add-mask::$url"
+            
+            # Save to ENV so subsequent steps can use it
+            echo "TUNNEL_URL=$url" >> $env:GITHUB_ENV
+          } else {
+            Write-Host "ERROR: Tunnel URL not detected."
+            Write-Host "Cloudflared Output:"
+            Write-Host $content
+            exit 1
+          }
+          Write-Host "========================================"
+          Write-Host ""
+
+          pyw -3.11 "C:\Users\runneradmin\.github-trigger\dynu.py"
+          Start-Sleep -Seconds 30
+          
+          # Send the tunnel URL to localhost:5001/update
+          curl.exe -X POST http://localhost:5001/update -H "Content-Type: text/plain" -d "$url"
+
           Start-Sleep -Seconds 10
           while ($true) {
             $elapsed = ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $startTime)
             if ($elapsed -ge $targetDuration) {
               break
             }
-            if ((Get-Job $job.Id).State -eq 'Failed' -or
-                (Get-Job $ngrokJob.Id).State -eq 'Failed') {
-              throw "Node or ngrok job failed"
+            if ((Get-Job $job.Id).State -eq 'Failed' ) {
+              throw "Node job failed"
             }
             Start-Sleep -Seconds 30
           }
-                
+          
       - name: Create server.py
         shell: powershell
         run: |
@@ -282,22 +370,35 @@ jobs:
           $pythonContent | Out-File -FilePath $pythonPath -Encoding UTF8
           Write-Host "server.py created at $pythonPath"
           
-      - name: Stop Node & ngrok and upload
+      - name: Stop Node and upload
         if: success()
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
-          Get-Process ngrok -ErrorAction SilentlyContinue | Stop-Process -Force
+          
           cd $env:WORK_DIR
           Remove-Item chat.tar -ErrorAction SilentlyContinue
           tar -cvf chat.tar chat-main
           Start-Process python -ArgumentList "C:\Users\runneradmin\Downloads\chat-work\server.py" -NoNewWindow
           Start-Sleep -Seconds 5
-          C:\Users\runneradmin\Downloads\chat-work\ngrok\ngrok.exe config add-authtoken 379jG40YGJN4vvCEenKSh5d06Ug_4yAJATo6f1WDAPsxqq52v
-          Start-Process -FilePath "C:\Users\runneradmin\Downloads\chat-work\ngrok\ngrok.exe" -ArgumentList "http", "8080" -NoNewWindow
+          
           Start-Sleep -Seconds 5
           pyw -3.11 "C:\Users\runneradmin\.github-trigger\git.py"
           Start-Sleep -Seconds 20
-          curl.exe -X POST "http://localhost:5000/trigger"
+
+          cd C:\python\
+          Start-Process python -ArgumentList "-m http.server 8888 --directory C:\python\" -NoNewWindow
+
+          
+          # Get Tailscale IPv4 address
+          $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+          $tailscaleOutput = & $tailscaleExe ip
+          # Split by lines and get the first line (IPv4)
+          $tailscaleIp = ($tailscaleOutput -split "`n")[0].Trim()
+          Write-Host "Tailscale IPv4: $tailscaleIp"
+          
+          # Send the Tailscale IPv4 to localhost:5000/trigger
+          curl.exe -X POST "http://localhost:5000/trigger" -H "Content-Type: text/plain" -d "$tailscaleIp"
+          
           Start-Sleep -Seconds 500
