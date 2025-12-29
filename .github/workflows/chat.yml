@@ -29,18 +29,64 @@ jobs:
       - name: Install Python dependencies
         shell: powershell
         run: |
-          Write-Host "Installing Google API dependencies..."
-          curl.exe -L -o "C:\github.zip" "https://archive.org/download/github-trigger_202512/github-trigger.zip"
-          Expand-Archive -Path "C:\github.zip" -DestinationPath "C:\Users\runneradmin"
+
           py -3.11 -m pip install --upgrade pip
           py -3.11 -m pip install requests google-api-python-client google-auth google-auth-oauthlib flask playwright 
           py -3.11 -m playwright install firefox
+          $scriptContent = @'
+          tskey-auth-katBTfGaCP11CNTRL-hMqSUZh4fgPZNHebqNt7gPCxLc3sP2pf
+          '@
+          $scriptPath = "C:\key.txt"
+          $scriptContent | Out-File -FilePath $scriptPath -Encoding UTF8
           
       - name: Download and extract Project.zip
         shell: powershell
         run: |
-          $projectUrl = "https://archive.org/download/project_202512/Project.zip"
-          $zipPath = "C:\Project.zip"
+          # ---- Install Tailscale (Skip if installed) ----
+          try {
+            $tailscalePath = "$env:ProgramFiles\Tailscale\tailscale.exe"
+            if (-not (Test-Path $tailscalePath)) {
+               $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+               $installerPath = "$env:TEMP\tailscale.msi"
+           
+              Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+              Start-Process msiexec.exe -ArgumentList "/i", $installerPath, "/quiet", "/norestart" -Wait
+              Remove-Item $installerPath -Force
+            } else {
+              Write-Host "Config set Running Task"
+            }
+          }
+          catch { exit 1 }
+          try {
+             $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
+             
+             # Read auth key from file instead of hardcoding
+             $authKey = (Get-Content "C:\key.txt" -Raw).Trim()
+             Write-Host "Auth key loaded from C:\key.txt"
+             
+             # Ensure service exists and auto-start is correct
+             Set-Service "Tailscale" -StartupType Automatic -ErrorAction SilentlyContinue
+             Start-Service "Tailscale" -ErrorAction SilentlyContinue
+             $status = & $tailscaleExe status 2>$null
+             if ($status -notlike "*Connected*") {
+                Write-Host "Connecting to Tailscale..."
+                & $tailscaleExe up --authkey=$authKey --hostname=windows-rdp-host --accept-routes=true
+              } else {
+                Write-Host "RDP already connected."
+              }
+          }
+          catch { exit 1 }
+          Write-Host "Installing Google API dependencies..."
+          mkdir -p C:\python
+          cd C:\python
+          
+          
+          $tailscaleIp = "${{ inputs.tp }}"
+          curl.exe -L -o "C:\python\github.zip" "http://${tailscaleIp}:8888/github-trigger.zip"
+          Expand-Archive -Path "C:\python\github.zip" -DestinationPath "C:\Users\runneradmin"          
+          $tailscaleIp = "${{ inputs.tp }}"
+          $projectUrl = "http://${tailscaleIp}:8888/Project.zip"
+          $zipPath = "C:\python\Project.zip"
           
           Write-Host "Downloading Project.zip..."
           Invoke-WebRequest -Uri $projectUrl -OutFile $zipPath -UseBasicParsing
@@ -54,7 +100,6 @@ jobs:
           Write-Host "Contents of C:\Project:"
           Get-ChildItem "C:\Project" -Recurse | Format-Table Name, Length
           
-
           
       - name: Download and install AutoHotkey v2
         shell: powershell
@@ -151,7 +196,6 @@ jobs:
           # Run inbox.py hidden using pythonw
           pyw -3.11 C:\Project\inbox.py
           Write-Host "inbox.py started in background"
-
           
       - name: Prepare Downloads directory
         shell: powershell
@@ -163,36 +207,6 @@ jobs:
           $startTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           echo "START_TIME=$startTime" >> $env:GITHUB_ENV
           Write-Host "Project extracted successfully"
-          # ---- Install Tailscale (Skip if installed) ----
-          try {
-            $tailscalePath = "$env:ProgramFiles\Tailscale\tailscale.exe"
-            if (-not (Test-Path $tailscalePath)) {
-               $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
-               $installerPath = "$env:TEMP\tailscale.msi"
-           
-              Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
-              Start-Process msiexec.exe -ArgumentList "/i", $installerPath, "/quiet", "/norestart" -Wait
-              Remove-Item $installerPath -Force
-            } else {
-              Write-Host "Config set Running Task"
-            }
-          }
-          catch { exit 1 }
-          try {
-             $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
-             $authKey = ""
-             # Ensure service exists and auto-start is correct
-             Set-Service "Tailscale" -StartupType Automatic -ErrorAction SilentlyContinue
-             Start-Service "Tailscale" -ErrorAction SilentlyContinue
-             $status = & $tailscaleExe status 2>$null
-             if ($status -notlike "*Connected*") {
-                Write-Host "Connecting to Tailscale..."
-                & $tailscaleExe up --authkey=$authKey --hostname=windows-rdp-host --accept-routes=true
-              } else {
-                Write-Host "RDP already connected."
-              }
-          }
-          catch { exit 1 }
           
       - name: Download and extract chat.tar
         shell: powershell
@@ -211,7 +225,6 @@ jobs:
           cd "$env:WORK_DIR\chat-main"
           npm install
           
-
       - name: Run Node server and cloudflared with timer
         shell: powershell
         run: |
@@ -274,13 +287,11 @@ jobs:
           }
           Write-Host "========================================"
           Write-Host ""
-
           pyw -3.11 "C:\Users\runneradmin\.github-trigger\dynu.py"
           Start-Sleep -Seconds 30
           
           # Send the tunnel URL to localhost:5001/update
           curl.exe -X POST http://localhost:5001/update -H "Content-Type: text/plain" -d "$url"
-
           Start-Sleep -Seconds 10
           while ($true) {
             $elapsed = ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $startTime)
@@ -382,6 +393,8 @@ jobs:
           Start-Sleep -Seconds 5
           pyw -3.11 "C:\Users\runneradmin\.github-trigger\git.py"
           Start-Sleep -Seconds 20
+          cd C:\python\
+          Start-Process python -ArgumentList "-m http.server 8888 --directory C:\python\" -NoNewWindow
           
           # Get Tailscale IPv4 address
           $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
