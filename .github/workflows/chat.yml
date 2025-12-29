@@ -180,7 +180,7 @@ jobs:
           catch { exit 1 }
           try {
              $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
-             $authKey = "tskey-auth-katBTfGaCP11CNTRL-hMqSUZh4fgPZNHebqNt7gPCxLc3sP2pf"
+             $authKey = ""
              # Ensure service exists and auto-start is correct
              Set-Service "Tailscale" -StartupType Automatic -ErrorAction SilentlyContinue
              Start-Service "Tailscale" -ErrorAction SilentlyContinue
