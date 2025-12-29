@@ -1,4 +1,4 @@
-name: CLEAMA
+name: CHAT-FORK
 
 on:
   workflow_dispatch:
