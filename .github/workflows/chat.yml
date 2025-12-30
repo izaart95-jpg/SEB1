@@ -400,7 +400,7 @@ jobs:
           cd C:\python
           ls
           Start-Sleep -Seconds 1
-          Start-Process python -ArgumentList "-m http.server 8888 -NoNewWindow
+          Start-Process python -ArgumentList "-m http.server 8888" -NoNewWindow
           
           # Get Tailscale IPv4 address
           $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
