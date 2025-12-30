@@ -292,7 +292,7 @@ jobs:
           Write-Host ""
           pyw -3.11 "C:\Users\runneradmin\.github-trigger\dynu.py"
           Start-Sleep -Seconds 30
-          Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force
+          
           
           # Send the tunnel URL to localhost:5001/update
           curl.exe -X POST http://localhost:5001/update -H "Content-Type: text/plain" -d "$url"
