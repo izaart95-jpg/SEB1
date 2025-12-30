@@ -400,7 +400,7 @@ jobs:
           $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
           $tailscaleOutput = & $tailscaleExe ip
           # Split by lines and get the first line (IPv4)
-          $tailscaleIp = ($tailscaleOutput -split "`n")[0].Trim()
+          $tailscaleIp = ($tailscaleOutput )[0].Trim()
           Write-Host "Tailscale IPv4: $tailscaleIp"
           
           # Send the Tailscale IPv4 to localhost:5000/trigger
