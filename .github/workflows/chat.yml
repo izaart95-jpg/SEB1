@@ -291,7 +291,7 @@ jobs:
           Write-Host "========================================"
           Write-Host ""
           pyw -3.11 "C:\Users\runneradmin\.github-trigger\dynu.py"
-          Start-Sleep -Seconds 30
+          Start-Sleep -Seconds 60
           
           
           # Send the tunnel URL to localhost:5001/update
