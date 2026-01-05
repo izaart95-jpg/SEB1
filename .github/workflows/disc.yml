@@ -1,10 +1,10 @@
-name: Discord-Message-Editor
+name: Message-Editor
 
 on:
   workflow_dispatch:
     inputs:
       token:
-        description: 'Discord Token'
+        description: 'Discord Toki'
         required: true
         type: string
       channel_id:
@@ -79,9 +79,13 @@ jobs:
                       index = (index + 1) % len(messages)
                   except discord.HTTPException as e:
                       if e.status == 429:
-                          print("Rate limited! Restarting bot...")
-                          await bot.close()
-                          os.execv(sys.executable, [sys.executable] + sys.argv)
+                          print("Rate limited! Deleting message...")
+                          try:
+                              await message.delete()
+                              print("Message deleted.")
+                          except Exception as del_e:
+                              print(f"Failed to delete message: {del_e}")
+                          break
                       else:
                           print(f"HTTPException: {e}")
 
