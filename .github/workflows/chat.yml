@@ -246,9 +246,7 @@ jobs:
           echo "DESKTOP_DIR=$desktop" >> $env:GITHUB_ENV
           cd $desktop
           Write-Host "Downloading cloudflared..."
-          Invoke-WebRequest `
-            -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" `
-            -OutFile "cloudflared.exe"
+          curl.exe -L -o "cloudflared.exe" "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
           Unblock-File "cloudflared.exe"
           echo "CLOUDFLARED_EXE=$desktop\cloudflared.exe" >> $env:GITHUB_ENV
           
