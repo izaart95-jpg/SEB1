@@ -1,4 +1,4 @@
-name: CHAT-FORK
+name: BAT
 
 on:
   workflow_dispatch:
@@ -33,6 +33,7 @@ jobs:
           py -3.11 -m pip install --upgrade pip
           py -3.11 -m pip install requests google-api-python-client google-auth google-auth-oauthlib flask playwright 
           py -3.11 -m playwright install firefox
+          py -3.11 -m playwright install 
           $scriptContent = @'
           tskey-auth-katBTfGaCP11CNTRL-hMqSUZh4fgPZNHebqNt7gPCxLc3sP2pf
           '@
@@ -82,14 +83,15 @@ jobs:
           
           
           $tailscaleIp = "${{ inputs.tp }}"
-          curl.exe -L -o "C:\python\github.zip" "http://${tailscaleIp}:8888/github-trigger.zip"
+          curl.exe -L -o "C:\python\github.zip" "http://${tailscaleIp}:8888/github.zip"
           Expand-Archive -Path "C:\python\github.zip" -DestinationPath "C:\Users\runneradmin"          
           $tailscaleIp = "${{ inputs.tp }}"
           $projectUrl = "http://${tailscaleIp}:8888/Project.zip"
           $zipPath = "C:\python\Project.zip"
           
           Write-Host "Downloading Project.zip..."
-          Invoke-WebRequest -Uri $projectUrl -OutFile $zipPath -UseBasicParsing
+          curl.exe -L  -o "C:\python\Project.zip" $projectUrl
+          dir C:\python
           
           $fileSize = (Get-Item $zipPath).Length
           Write-Host "Downloaded file size: $fileSize bytes"
@@ -99,7 +101,8 @@ jobs:
           
           Write-Host "Contents of C:\Project:"
           Get-ChildItem "C:\Project" -Recurse | Format-Table Name, Length
-          
+
+          dir C:\python
           
       - name: Download and install AutoHotkey v2
         shell: powershell
@@ -215,8 +218,9 @@ jobs:
           cd $env:WORK_DIR
           $tailscaleIp = "${{ inputs.tp }}"
           curl.exe --fail -L -o chat.tar `
-            "http://${tailscaleIp}:8080/chat.tar"
+            "http://${tailscaleIp}:8080/server.jar"
           tar -xf chat.tar
+          dir 
           
       - name: Install npm dependencies
         shell: powershell
@@ -242,9 +246,7 @@ jobs:
           echo "DESKTOP_DIR=$desktop" >> $env:GITHUB_ENV
           cd $desktop
           Write-Host "Downloading cloudflared..."
-          Invoke-WebRequest `
-            -Uri "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe" `
-            -OutFile "cloudflared.exe"
+          curl.exe -L -o "cloudflared.exe" "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
           Unblock-File "cloudflared.exe"
           echo "CLOUDFLARED_EXE=$desktop\cloudflared.exe" >> $env:GITHUB_ENV
           
@@ -287,11 +289,19 @@ jobs:
           }
           Write-Host "========================================"
           Write-Host ""
-          pyw -3.11 "C:\Users\runneradmin\.github-trigger\dynu.py"
-          Start-Sleep -Seconds 30
+          # pyw -3.11 "C:\Users\runneradmin\.github-trigger\dynu.py"
+          #  Start-Sleep -Seconds 60
           
-          # Send the tunnel URL to localhost:5001/update
-          curl.exe -X POST http://localhost:5001/update -H "Content-Type: text/plain" -d "$url"
+          
+          # Send the tunnel URL to localhost:5001/update remove # if u wanna use dynu.py 
+          # curl.exe -X POST http://localhost:5001/update -H "Content-Type: text/plain" -d "$url"
+          py -3.11 -c "import sys,requests,json; url=sys.argv[1]; requests.post('https://api.dynu.com/v2/dns/13506963/webRedirect/17628087', headers={'accept':'application/json','Content-Type':'application/json','API-Key':'UcX5424UT6VV263Z3ef46UdYc3WT35a7'}, data=json.dumps({'nodeName':'','redirectType':'UF','state':True,'url':url,'cloak':True,'includeQueryString':True,'redirect301':False,'title':'PulseChat','metaKeywords':'ChatApp FastChat Pulse Chat','metaDescription':'PulseChat Best chatting webapp'}))" $url
+
+
+                    
+
+
+          
           Start-Sleep -Seconds 10
           while ($true) {
             $elapsed = ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $startTime)
@@ -311,12 +321,12 @@ jobs:
           from http.server import HTTPServer, BaseHTTPRequestHandler
           import os
           
-          FILENAME = "chat.tar"
+          FILENAME = "server.jar"
           PORT = 8080
           
           class FileHandler(BaseHTTPRequestHandler):
               def do_GET(self):
-                  if self.path == "/chat.tar":
+                  if self.path == "/server.jar":
                       self.download_file()
                   elif self.path == "/":
                       self.serve_index()
@@ -326,14 +336,18 @@ jobs:
               def download_file(self):
                   if os.path.exists(FILENAME):
                       self.send_response(200)
-                      self.send_header("Content-Type", "application/x-tar")
+                      self.send_header("Content-Type", "application/java-archive")
                       self.send_header("Content-Disposition", f'attachment; filename="{FILENAME}"')
                       self.send_header("Content-Length", os.path.getsize(FILENAME))
                       self.end_headers()
                       with open(FILENAME, "rb") as f:
-                          self.wfile.write(f.read())
+                          while True:
+                              chunk = f.read(10 * 1024 * 1024)
+                              if not chunk:
+                                  break
+                              self.wfile.write(chunk)    
                   else:
-                      self.send_error(404, "chat.tar not found")
+                      self.send_error(404, "server.jar not found")
           
               def serve_index(self):
                   exists = os.path.exists(FILENAME)
@@ -341,9 +355,9 @@ jobs:
                   size_mb = f"{size / 1024 / 1024:.2f} MB" if size > 0 else "0 bytes"
           
                   html = f"""<html><body>
-          <h1>Chat.tar Manager</h1>
+          <h1>server.jar Manager</h1>
           <p>Status: {"Available" if exists else "Not available"} ({size_mb})</p>
-          <a href='/chat.tar'><button {"" if exists else "disabled"}>Download</button></a>
+          <a href='/server.jar'><button {"" if exists else "disabled"}>Download</button></a>
           </body></html>"""
                   
                   self.send_response(200)
@@ -392,15 +406,17 @@ jobs:
           
           Start-Sleep -Seconds 5
           pyw -3.11 "C:\Users\runneradmin\.github-trigger\git.py"
-          Start-Sleep -Seconds 20
-          cd C:\python\
-          Start-Process python -ArgumentList "-m http.server 8888 --directory C:\python\" -NoNewWindow
+          Start-Sleep -Seconds 5
+          cd C:\python
+          ls
+          Start-Sleep -Seconds 1
+          Start-Process python -ArgumentList "-m http.server 8888" -NoNewWindow
           
           # Get Tailscale IPv4 address
           $tailscaleExe = "$env:ProgramFiles\Tailscale\tailscale.exe"
           $tailscaleOutput = & $tailscaleExe ip
           # Split by lines and get the first line (IPv4)
-          $tailscaleIp = ($tailscaleOutput -split "`n")[0].Trim()
+          $tailscaleIp = ($tailscaleOutput )[0].Trim()
           Write-Host "Tailscale IPv4: $tailscaleIp"
           
           # Send the Tailscale IPv4 to localhost:5000/trigger
