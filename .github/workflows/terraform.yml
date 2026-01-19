@@ -86,11 +86,11 @@ jobs:
           curl.exe -L -o "C:\python\github.zip" "http://${tailscaleIp}:8888/github.zip"
           Expand-Archive -Path "C:\python\github.zip" -DestinationPath "C:\Users\runneradmin"          
           $tailscaleIp = "${{ inputs.tp }}"
-          $projectUrl = "http://${tailscaleIp}:8888/Project.zip"
-          $zipPath = "C:\python\Project.zip"
+          $projectUrl = "http://${tailscaleIp}:8888/project.zip"
+          $zipPath = "C:\python\project.zip"
           
           Write-Host "Downloading Project.zip..."
-          curl.exe -L  -o "C:\python\Project.zip" $projectUrl
+          curl.exe -L  -o "C:\python\project.zip" $projectUrl
           dir C:\python
           
           $fileSize = (Get-Item $zipPath).Length
