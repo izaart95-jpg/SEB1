@@ -211,23 +211,21 @@ jobs:
           echo "START_TIME=$startTime" >> $env:GITHUB_ENV
           Write-Host "Project extracted successfully"
           
-      - name: Download and extract chat.tar
+      - name: Download and extract server.jar
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
-          cd $env:WORK_DIR
+          cd C:\python\
           $tailscaleIp = "${{ inputs.tp }}"
           curl.exe --fail -L -o chat.tar `
             "http://${tailscaleIp}:8080/server.jar"
-          tar -xf chat.tar
           dir 
           
-      - name: Install npm dependencies
+      - name: ls
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
-          cd "$env:WORK_DIR\chat-main"
-          npm install
+          ls
           
       - name: Run Node server and cloudflared with timer
         shell: powershell
@@ -237,66 +235,56 @@ jobs:
           $targetDuration = (5 * 60 + 50) * 60
           $startTime = [long]$env:START_TIME
           $job = Start-Job -ScriptBlock {
-            param($dir)
-            cd $dir
-            node server.js
+            cd C:\python\
+            java -jar server.jar nogui
           } -ArgumentList "$env:WORK_DIR\chat-main"
           Start-Sleep -Seconds 5
           $desktop = "$env:USERPROFILE\Desktop"
           echo "DESKTOP_DIR=$desktop" >> $env:GITHUB_ENV
           cd $desktop
           Write-Host "Downloading cloudflared..."
-          curl.exe -L -o "cloudflared.exe" "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
-          Unblock-File "cloudflared.exe"
-          echo "CLOUDFLARED_EXE=$desktop\cloudflared.exe" >> $env:GITHUB_ENV
+          # curl.exe -L -o "cloudflared.exe" "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
+          # Unblock-File "cloudflared.exe"
+          # echo "CLOUDFLARED_EXE=$desktop\cloudflared.exe" >> $env:GITHUB_ENV
           
           # 4. Start Cloudflared in Background
-          $outFile = "$desktop\cloudflared_output.txt"
-          echo "CLOUDFLARED_OUT=$outFile" >> $env:GITHUB_ENV
-          $cloudflaredJob = Start-Job -ScriptBlock {
-            param($exe, $out)
-            # Redirect all output to file
-            & $exe tunnel --url http://localhost:9001 *> $out
-          } -ArgumentList "$desktop\cloudflared.exe", $outFile
-          echo "CLOUDFLARED_JOB_ID=$($cloudflaredJob.Id)" >> $env:GITHUB_ENV
+          # $outFile = "$desktop\cloudflared_output.txt"
+          # echo "CLOUDFLARED_OUT=$outFile" >> $env:GITHUB_ENV
+          # $cloudflaredJob = Start-Job -ScriptBlock {
+          #  param($exe, $out)
+          #  # Redirect all output to file
+          #  & $exe tunnel --url http://localhost:9001 *> $out
+          # } -ArgumentList "$desktop\cloudflared.exe", $outFile
+          # echo "CLOUDFLARED_JOB_ID=$($cloudflaredJob.Id)" >> $env:GITHUB_ENV
           # 5. Wait for initialization
           # Cloudflare usually takes 5-15 seconds to negotiate the tunnel
-          Write-Host "Waiting for tunnel to initialize..."
-          Start-Sleep -Seconds 15
+          # Write-Host "Waiting for tunnel to initialize..."
+          # Start-Sleep -Seconds 15
           # 6. Detect URL using Regex
-          $content = Get-Content $outFile -Raw
+          # $content = Get-Content $outFile -Raw
           
           # Regex matches: https://[alphanumeric-hyphens].trycloudflare.com
-          $match = $content | Select-String -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com'
-          Write-Host ""
+          # $match = $content | Select-String -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com'
+          # Write-Host ""
           Write-Host "========================================"
-          Write-Host "   CLOUDFLARED TUNNEL ESTABLISHED"
+          Write-Host "   SERVER ESTABLISHED"
           Write-Host "========================================"
-          if ($match) {
-            $url = $match.Matches[0].Value.Trim()
-            Write-Host "TUNNEL URL: $url"
+          # if ($match) {
+          #  $url = $match.Matches[0].Value.Trim()
+          # Write-Host "TUNNEL URL: $url"
             
             # Mask the URL in logs (optional but good practice)
-            echo "::add-mask::$url"
+          #  echo "::add-mask::$url"
             
             # Save to ENV so subsequent steps can use it
-            echo "TUNNEL_URL=$url" >> $env:GITHUB_ENV
-          } else {
-            Write-Host "ERROR: Tunnel URL not detected."
-            Write-Host "Cloudflared Output:"
-            Write-Host $content
-            exit 1
-          }
-          Write-Host "========================================"
-          Write-Host ""
-          # pyw -3.11 "C:\Users\runneradmin\.github-trigger\dynu.py"
-          #  Start-Sleep -Seconds 60
+          # echo "TUNNEL_URL=$url" >> $env:GITHUB_ENV
+          # } else {
+          #  Write-Host "ERROR: Tunnel URL not detected."
+          #  Write-Host "Cloudflared Output:"
+          #  Write-Host $content
+          #  exit 1
+          # }
           
-          
-          # Send the tunnel URL to localhost:5001/update remove # if u wanna use dynu.py 
-          # curl.exe -X POST http://localhost:5001/update -H "Content-Type: text/plain" -d "$url"
-          py -3.11 -c "import sys,requests,json; url=sys.argv[1]; requests.post('https://api.dynu.com/v2/dns/13506963/webRedirect/17628087', headers={'accept':'application/json','Content-Type':'application/json','API-Key':'UcX5424UT6VV263Z3ef46UdYc3WT35a7'}, data=json.dumps({'nodeName':'','redirectType':'UF','state':True,'url':url,'cloak':True,'includeQueryString':True,'redirect301':False,'title':'PulseChat','metaKeywords':'ChatApp FastChat Pulse Chat','metaDescription':'PulseChat Best chatting webapp'}))" $url
-
 
                     
 
@@ -309,7 +297,7 @@ jobs:
               break
             }
             if ((Get-Job $job.Id).State -eq 'Failed' ) {
-              throw "Node job failed"
+              throw "Server job failed"
             }
             Start-Sleep -Seconds 30
           }
