@@ -235,7 +235,7 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
-          cd "$env:WORK_DIR\chat-main"
+          
           $targetDuration = (5 * 60 + 30) * 60
           $startTime = [long]$env:START_TIME
           $job = Start-Job -ScriptBlock {
