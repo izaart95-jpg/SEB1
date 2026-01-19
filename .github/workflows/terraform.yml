@@ -246,7 +246,8 @@ jobs:
           # curl.exe -L -o "cloudflared.exe" "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
           # Unblock-File "cloudflared.exe"
           # echo "CLOUDFLARED_EXE=$desktop\cloudflared.exe" >> $env:GITHUB_ENV
-          
+          Start-Sleep -Seconds 10
+          Start-Process "ssh" -ArgumentList "-fN -p 223 HiSb2dQB_FqKS37RgdkEnmVjIr6QScKaDi6rdrhKSyweD4Yo3vH6AzO8RkKIzamQBSV-iKIKr3qnnmiqpn7thg@6ajcock7l.localto.net -R1846:127.0.0.1:25565 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" -NoNewWindow
           # 4. Start Cloudflared in Background
           # $outFile = "$desktop\cloudflared_output.txt"
           # echo "CLOUDFLARED_OUT=$outFile" >> $env:GITHUB_ENV
