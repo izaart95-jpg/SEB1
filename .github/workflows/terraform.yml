@@ -320,7 +320,7 @@ jobs:
 
           
           Start-Sleep -Seconds 5
-          pyw -3.11 "C:\Users\runneradmin\.github-trigger\git.py"
+          Start-Process py -ArgumentList '-3.11 "C:\Users\runneradmin\.github-trigger\git.py"' 
           Start-Sleep -Seconds 5
           cd C:\python
           ls
